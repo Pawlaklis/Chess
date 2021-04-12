@@ -8,7 +8,7 @@
 
 class Board{
 public:
-    piece *board[8][8]{};
+    piece *board[8][8];
     Board(int x, int y);
 
     void draw(sf::RenderWindow& target);
