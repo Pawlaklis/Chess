@@ -3,10 +3,24 @@
 
 //auxiliary functions
 
+bool isInBoard(int x, int y){
+    if (x < 0 || y < 0 || x >= 8 || y >= 8)
+        return false;
+    return true;
+}
+
 int abs(int a){
     if(a < 0)
         return -a;
     return a;
+}
+
+void copy(piece *to[8][8], piece* from[8][8]){
+    for (int i = 0;i< 8;i++){
+        for (int j = 0; j < 8; ++j) {
+            to[i][j] = from[i][j];
+        }
+    }
 }
 
 template <typename T> int sgn(T val) {
@@ -63,10 +77,18 @@ void Board::draw(sf::RenderWindow &target) {
     }
 }
 
-int Board::move(int fromX, int fromY, int toX, int toY) {
+int Board::move(int fromX, int fromY, int toX, int toY, set player) {
+
+    piece *copyBoard[8][8];
+    copy(copyBoard, board);
+
+
     if(fromX == toX && fromY == toY)
         return -1;
     if(board[fromX][fromY] != nullptr && canMove( *board[fromX][fromY], fromX, fromY, toX, toY)){
+
+
+
         if (board[toX][toY] != nullptr) {
             board[toX][toY]->isAlive = false;
         }
@@ -74,12 +96,30 @@ int Board::move(int fromX, int fromY, int toX, int toY) {
 
         board[fromX][fromY] = nullptr;
 
+        std::pair<int, int> whiteKing, blackKing;
+        whiteKing = findWhiteKing();
+        blackKing = findBlackKing();
+
+        if (player == WHITE){
+            if (isWhiteCheck(whiteKing.first, whiteKing.second)){
+                copy(board, copyBoard);
+                return -1;
+            }
+        } else{
+            if (isBlackCheck(blackKing.first, blackKing.second)){
+                copy(board, copyBoard);
+                return -1;
+            }
+        }
+
         lastMoveFrom.setPosition(whiteTile.getSize().x*fromX + 5, whiteTile.getSize().y*fromY + 5);
         lastMoveTo.setPosition(whiteTile.getSize().x*toX + 5, whiteTile.getSize().y*toY + 5);
         lastMoveTo.setOutlineThickness(5.f);
 
+
         return 1;
     }
+
     return -1;
 }
 
@@ -94,12 +134,15 @@ void Board::highlight(int x, int y) {
     lastMoveTo.setOutlineThickness(0);
 }
 
-void Board::reset() {
+void Board::reset() { //flushes the board and allocates the new pieces
     for (auto & i : board) {
         for (auto & j : i) {
             j = nullptr;
         }
     }
+    whitePieces.clear();
+    blackPieces.clear();
+
     createPieces();
 }
 
@@ -107,7 +150,7 @@ void Board::reset() {
 
 //Private methods
 
-void Board::createTiles(int x, int y) {
+void Board::createTiles(int x, int y) { // sets properties of tiles
     whiteTile = sf::RectangleShape(sf::Vector2f(x/8, y/8));
     whiteTile.setFillColor(sf::Color::White);
     blackTile = sf::RectangleShape(sf::Vector2f(x/8, y/8));
@@ -124,7 +167,7 @@ void Board::createTiles(int x, int y) {
     lastMoveFrom.setOutlineColor(sf::Color::Yellow);
 }
 
-int Board::createPieces() {
+int Board::createPieces() { //allocates pieces and puts them in vectors (idk why, maybe I'll need that) and on board
     for (int i = 0; i < 8; ++i) {
         piece *t = new piece(WHITE, PAWN, i, &wTextures[0]);
         whitePieces.push_back(*t);
@@ -217,12 +260,354 @@ bool Board::loadTextures() {
     return true;
 }
 
-bool Board::isCheck() {
+bool Board::isWhiteCheck(int x, int y) { // returns true if there is a check on white king on (x, y) coordinates
+    bool blackChecks[8][8] = {false};
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (board[i][j] != nullptr && board[i][j]->color == BLACK){
+                switch (board[i][j]->type) {
+                    case PAWN:
+                        if (isInBoard(i + 1,j + 1))
+                            blackChecks[i + 1][j + 1] = true;
+                        if (isInBoard(i - 1,j + 1))
+                            blackChecks[i - 1][j + 1] = true;
+                        break;
+                    case KNIGHT:
+                        if (isInBoard(i + 2, j + 1))
+                            blackChecks[i + 2][j + 1] = true;
+                        if (isInBoard(i - 2, j + 1))
+                            blackChecks[i - 2][j + 1] = true;
+                        if (isInBoard(i + 2, j - 1))
+                            blackChecks[i + 2][j - 1] = true;
+                        if (isInBoard(i - 2, j - 1))
+                            blackChecks[i - 2][j - 1] = true;
+
+                        if (isInBoard(i + 1, j + 2))
+                            blackChecks[i + 1][j + 2] = true;
+                        if (isInBoard(i - 1, j + 2))
+                            blackChecks[i - 1][j + 2] = true;
+                        if (isInBoard(i + 1, j - 2))
+                            blackChecks[i + 1][j - 2] = true;
+                        if (isInBoard(i - 1, j - 2))
+                            blackChecks[i - 1][j - 2] = true;
+                        break;
+                    case BISHOP:
+                        for (int k = 1; isInBoard(i + k ,j + k); ++k) {
+                            blackChecks[i + k][j + k] = true;
+
+                            if (board[i + k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i + k ,j - k); ++k) {
+                            blackChecks[i + k][j - k] = true;
+
+                            if (board[i + k][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j + k); ++k) {
+                            blackChecks[i - k][j + k] = true;
+
+                            if (board[i - k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j - k); ++k) {
+                            blackChecks[i - k][j - k] = true;
+
+                            if (board[i - k][j - k] != nullptr)
+                                break;
+                        }
+                        break;
+                    case ROOK:
+                        for (int k = 1; isInBoard(i + k ,j); ++k) {
+                            blackChecks[i + k][j] = true;
+                            if (board[i + k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j - k); ++k) {
+                            blackChecks[i][j - k] = true;
+
+                            if (board[i][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j); ++k) {
+                            blackChecks[i - k][j] = true;
+                            if (board[i - k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j + k); ++k) {
+                            blackChecks[i][j + k] = true;
+
+                            if (board[i][j + k] != nullptr)
+                                break;
+                        }
+                        break;
+                    case QUEEN:
+                        for (int k = 1; isInBoard(i + k ,j); ++k) {
+                            blackChecks[i + k][j] = true;
+
+                            if (board[i + k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j - k); ++k) {
+                            blackChecks[i][j - k] = true;
+
+                            if (board[i][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j); ++k) {
+                            blackChecks[i - k][j] = true;
+
+                            if (board[i - k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j - k); ++k) {
+                            blackChecks[i][j - k] = true;
+                            if (board[i][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i + k ,j + k); ++k) {
+                            blackChecks[i + k][j + k] = true;
+                            if (board[i + k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i + k ,j - k); ++k) {
+                            blackChecks[i + k][j - k] = true;
+                            if (board[i + k][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j + k); ++k) {
+                            blackChecks[i - k][j + k] = true;
+                            if (board[i - k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j - k); ++k) {
+                            blackChecks[i - k][j - k] = true;
+                            if (board[i - k][j - k] != nullptr)
+                                break;
+                        }
+                        break;
+                    case KING:
+                        if (isInBoard(i + 1, j + 1)){
+                            blackChecks[i + 1][j + 1] = true;
+                        }
+                        if (isInBoard(i + 1, j)){
+                            blackChecks[i + 1][j] = true;
+                        }
+                        if (isInBoard(i + 1, j - 1)){
+                            blackChecks[i + 1][j - 1] = true;
+                        }
+                        if (isInBoard(i, j - 1)){
+                            blackChecks[i][j - 1] = true;
+                        }
+                        if (isInBoard(i, j + 1)){
+                            blackChecks[i][j + 1] = true;
+                        }
+                        if (isInBoard(i - 1, j - 1)){
+                            blackChecks[i - 1][j - 1] = true;
+                        }
+                        if (isInBoard(i - 1, j)){
+                            blackChecks[i + 1][j] = true;
+                        }
+                        if (isInBoard(i - 1, j + 1)){
+                            blackChecks[i - 1][j + 1] = true;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+    
+    if (blackChecks[x][y])
+        return true;
+
     return false;
 }
 
+bool Board::isBlackCheck(int x, int y) { //same but for black
+    bool whiteChecks[8][8] = {false};
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (board[i][j] != nullptr && board[i][j]->color == WHITE){
+                switch (board[i][j]->type) {
+                    case PAWN:
+                        if (isInBoard(i - 1,j - 1))
+                            whiteChecks[i + 1][j - 1] = true;
+                        if (isInBoard(i - 1,j - 1))
+                            whiteChecks[i - 1][j - 1] = true;
+                        break;
+                    case KNIGHT:
+                        if (isInBoard(i + 2, j + 1))
+                            whiteChecks[i + 2][j + 1] = true;
+                        if (isInBoard(i - 2, j + 1))
+                            whiteChecks[i - 2][j + 1] = true;
+                        if (isInBoard(i + 2, j - 1))
+                            whiteChecks[i + 2][j - 1] = true;
+                        if (isInBoard(i - 2, j - 1))
+                            whiteChecks[i - 2][j - 1] = true;
+
+                        if (isInBoard(i + 1, j + 2))
+                            whiteChecks[i + 1][j + 2] = true;
+                        if (isInBoard(i - 1, j + 2))
+                            whiteChecks[i - 1][j + 2] = true;
+                        if (isInBoard(i + 1, j - 2))
+                            whiteChecks[i + 1][j - 2] = true;
+                        if (isInBoard(i - 1, j - 2))
+                            whiteChecks[i - 1][j - 2] = true;
+                        break;
+                    case BISHOP:
+                        for (int k = 1; isInBoard(i + k ,j + k); ++k) {
+                            whiteChecks[i + k][j + k] = true;
+
+                            if (board[i + k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i + k ,j - k); ++k) {
+                            whiteChecks[i + k][j - k] = true;
+
+                            if (board[i + k][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j + k); ++k) {
+                            whiteChecks[i - k][j + k] = true;
+
+                            if (board[i - k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j - k); ++k) {
+                            whiteChecks[i - k][j - k] = true;
+
+                            if (board[i - k][j - k] != nullptr)
+                                break;
+                        }
+                        break;
+                    case ROOK:
+                        for (int k = 1; isInBoard(i + k ,j); ++k) {
+                            whiteChecks[i + k][j] = true;
+                            if (board[i + k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j - k); ++k) {
+                            whiteChecks[i][j - k] = true;
+
+                            if (board[i][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j); ++k) {
+                            whiteChecks[i - k][j] = true;
+                            if (board[i - k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j + k); ++k) {
+                            whiteChecks[i][j + k] = true;
+
+                            if (board[i][j + k] != nullptr)
+                                break;
+                        }
+                        break;
+                    case QUEEN:
+                        for (int k = 1; isInBoard(i + k ,j); ++k) {
+                            whiteChecks[i + k][j] = true;
+
+                            if (board[i + k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j - k); ++k) {
+                            whiteChecks[i][j - k] = true;
+
+                            if (board[i][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j); ++k) {
+                            whiteChecks[i - k][j] = true;
+
+                            if (board[i - k][j] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i ,j - k); ++k) {
+                            whiteChecks[i][j - k] = true;
+                            if (board[i][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i + k ,j + k); ++k) {
+                            whiteChecks[i + k][j + k] = true;
+                            if (board[i + k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i + k ,j - k); ++k) {
+                            whiteChecks[i + k][j - k] = true;
+                            if (board[i + k][j - k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j + k); ++k) {
+                            whiteChecks[i - k][j + k] = true;
+                            if (board[i - k][j + k] != nullptr)
+                                break;
+                        }
+                        for (int k = 1; isInBoard(i - k ,j - k); ++k) {
+                            whiteChecks[i - k][j - k] = true;
+                            if (board[i - k][j - k] != nullptr)
+                                break;
+                        }
+                        break;
+                    case KING:
+                        if (isInBoard(i + 1, j + 1)){
+                            whiteChecks[i + 1][j + 1] = true;
+                        }
+                        if (isInBoard(i + 1, j)){
+                            whiteChecks[i + 1][j] = true;
+                        }
+                        if (isInBoard(i + 1, j - 1)){
+                            whiteChecks[i + 1][j - 1] = true;
+                        }
+                        if (isInBoard(i, j - 1)){
+                            whiteChecks[i][j - 1] = true;
+                        }
+                        if (isInBoard(i, j + 1)){
+                            whiteChecks[i][j + 1] = true;
+                        }
+                        if (isInBoard(i - 1, j - 1)){
+                            whiteChecks[i - 1][j - 1] = true;
+                        }
+                        if (isInBoard(i - 1, j)){
+                            whiteChecks[i + 1][j] = true;
+                        }
+                        if (isInBoard(i - 1, j + 1)){
+                            whiteChecks[i - 1][j + 1] = true;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+
+    if (whiteChecks[x][y])
+        return true;
+
+    return false;
+}
+
+std::pair<int, int> Board::findWhiteKing(){
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (board[i][j] != nullptr && board[i][j]->color == WHITE && board[i][j]->type == KING){
+                return {i, j};
+            }
+
+        }
+    }
+}
+std::pair<int, int> Board::findBlackKing() {
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (board[i][j] != nullptr && board[i][j]->color == BLACK && board[i][j]->type == KING){
+                return {i, j};
+            }
+        }
+    }
+}
 
 bool Board::canMove(const piece& p, int fromX, int fromY, int toX, int toY){
+
     if (board[toX][toY] != nullptr && board[toX][toY]->color == p.color)
         return false;
     if(p.type == PAWN){
@@ -371,6 +756,7 @@ bool Board::canMove(const piece& p, int fromX, int fromY, int toX, int toY){
     }
     return false;
 }
+
 
 
 

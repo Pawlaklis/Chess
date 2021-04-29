@@ -12,7 +12,7 @@ public:
     Board(int x, int y);
 
     void draw(sf::RenderWindow& target);
-    int move(int fromX, int fromY, int toX, int toY);
+    int move(int fromX, int fromY, int toX, int toY, set player);
     bool isPlayer(set player, int x, int y);
     void highlight(int x, int y);
     void reset();
@@ -27,8 +27,13 @@ private:
     void createTiles(int x, int y);
     int createPieces();
     bool loadTextures();
-    bool isCheck();
+    bool isWhiteCheck(int x, int y);
+    bool isBlackCheck(int x, int y);
     bool canMove(const piece& p, int fromX, int fromY, int toX, int toY);
+
+    std::pair<int, int> findWhiteKing();
+
+    std::pair<int, int> findBlackKing();
 };
 
 

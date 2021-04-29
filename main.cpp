@@ -42,7 +42,7 @@ int main()
                         to = sf::Mouse::getPosition(window)/128;
                         std::cout << "Moved from " << int(from.x) << " " << int(from.y) << " : " << board.board[from.x][from.y] << " \n";
                         std::cout << "To " << to.x << " " << to.y << " : " << board.board[to.x][to.y] << std::endl;
-                        int war = board.move(from.x, from.y, to.x, to.y);
+                        int war = board.move(from.x, from.y, to.x, to.y, player);
                         std::cout << war << std::endl;
                         if(war < 0)
                         {
